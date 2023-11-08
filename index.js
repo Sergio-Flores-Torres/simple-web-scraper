@@ -1,47 +1,74 @@
 // index.js
 // Sergio Flores - sergio@saft.industries
 // Reads web addresses from arguments and saves the html and images to file, along with some metadata
-import * as url from "url";
+import URL from "url";
 import fetch from "node-fetch";
+import fs from "fs";
 
 async function main() {
 	const version = process.env.npm_package_version;
 	console.log(`Simple web Scraper ${version} starting...`);
 
 	// Read addresses
-	if (process.argv.length < 3) {
-		console.log("Error: Please supply at least 1 website address.");
+	// TODO: Check for a maximum number of addresses based on processing capacity, and make it configurable.
+	if ((process.argv.length < 3) | (process.argv.length > 100)) { // Arbitrary number for safety.
+		console.log("Error: Please supply at least 1 website address and no more than 100.");
 	}
 
-	for (let i = 2; i < process.argv.length; i++) { // first 2 elements are not relevant (node & index.js)
+	const websites = process.argv.splice(2); // first 2 elements in the command line arguments are not relevant (node & index.js)
 
-		if (!stringIsAValidUrl(process.argv[i])) {
-			console.log(`Warn: Supplied address ${process.argv[i]} is not a valid URL. Skipping.`);
-			continue;
+	// Launch in parallel and have the program wait till all requests return.
+	await Promise.all(websites.map(async (website) => {
+		// Basic validation on URL and checking only http and https are used.
+		if (!stringIsAValidUrl(website, ["http", "https"])) {
+			console.log(`Warning: Supplied address "${website}" is not a valid URL or uses an unsupported protocol. Skipping.`);
+			return;
 		}
 
 		// Download files
-		await downloadFiles(process.argv[i]);
- 
-	} 
- 
+		await downloadFiles(website);
+	}));
+
 	console.log('Success');
 }
 
 async function downloadFiles(website) {
-	const response = await fetch(website);
-	const body = await response.text();
-	console.log(body); // prints a chock full of HTML richness
-	return body;
+	console.log(`Status: Downloading website ${website}...`); 
+
+	try {
+		const response = await fetch(website);
+		const body = await response.text();
+
+		const url = new URL.URL(website);	
+		const dirName = process.cwd() + "/downloads/" + url.hostname;
+		console.log(`Status: Saving website ${website} to folder ${dirName}`); 
+
+		if (!fs.existsSync(dirName)) {
+			fs.mkdirSync(dirName);
+		}
+
+		const fileName = dirName + "/index.html";
+		console.log(fileName)
+		fs.writeFileSync(fileName, body);
+		
+
+	} catch (err) {
+		console.log(`Error: Could not download website ${website}`); 
+		console.log(err); 
+	}
 }
 
 // Basic validation for provided URL's. Note: Very basic, a more detailed validation should be used in production
-function stringIsAValidUrl(s) {
+function stringIsAValidUrl(s, protocols) {
     try {
-		new url.URL(s);
-		return true;
+        const url = new URL.URL(s);
+        return protocols
+            ? url.protocol
+                ? protocols.map(x => `${x.toLowerCase()}:`).includes(url.protocol)
+                : false
+            : true;
     } catch (err) {
-		return false;
+        return false;
     }
 };
 
