@@ -12,14 +12,14 @@ Only images, css and scripts are downloaded. Some links return the SRC as undefi
 
 To run locally:  
 
-`git clone <repopath>`
-`cd <path>`
-`npm install`
-`npm start <website1> <website2> ...`
+`git clone <repopath>`  
+`cd <path>`  
+`npm install`  
+`npm start <website1> <website2> ...`  
 
 To run on docker desktop:
 
-`docker build -t simplewebscraper .`
-`docker run simplewebscraper <website1> <website2> ...`
+`docker build -t simplewebscraper .`  
+`docker run simplewebscraper <website1> <website2> ...`  
 
 
