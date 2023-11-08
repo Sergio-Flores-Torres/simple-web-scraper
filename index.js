@@ -5,7 +5,8 @@
 import URL from "url";
 import fetch from "node-fetch";
 import fs from "fs";
-import { load } from 'cheerio';
+import { load } from "cheerio";
+import {Buffer} from "buffer"; 
 
 async function main() {
 	const version = process.env.npm_package_version;
@@ -55,6 +56,7 @@ async function downloadFiles(website) {
 		console.log(`OK: Downloaded website ${website}`); 
 
 		await extractMetadata(website, dirName, body);
+		await downloadAssets(website, dirName, body);
 		
 	} catch (err) {
 		console.log(`Error: Could not download website ${website}.`); 
@@ -89,6 +91,83 @@ async function extractMetadata(website, dirName, body) {
 		
 	} catch (err) {
 		console.log(`Error: Could not extract or save metadata for website ${website}.`); 
+		console.log(err); 
+	}
+}
+
+async function downloadAssets(website, dirName, body) {
+	console.log(`Status: Downloading assets for offline viewing for website ${website}...`); 
+
+	try {
+		// Load the HTML in Cheerio
+		const $ = load(body);
+
+		console.log(`Status: Downloading IMG for offline viewing for website ${website}...`); 
+
+		// Select all images from the page
+		const images = $("img");
+		for (let i = 0; i < images.length; i++) {
+			const path = $(images[i]).attr().src;
+			console.log(path)
+			if (path == undefined) continue;
+
+			// Save only if relative path used, otherwise the html links to a hardcoded web address and we'd have to modify the HTML to make it work.
+			if (path.substring(0, 4) != "http") 
+				downloader(website, path, dirName);
+		}
+
+		console.log(`Status: Downloading LINK for offline viewing for website ${website}...`); 
+
+		// Select all stylesheets and fonts from the page
+		const links = $("link");
+		for (let i = 0; i < links.length; i++) {
+			const path = $(links[i]).attr().href;
+			console.log(path)
+			if (path == undefined) continue;
+
+			// Save only if relative path used, otherwise the html links to a hardcoded web address and we'd have to modify the HTML to make it work.
+			if (path.substring(0, 4) != "http") 
+				downloader(website, path, dirName);
+		}
+
+		console.log(`Status: Downloading SCRIPT for offline viewing for website ${website}...`); 
+
+		// Select all stylesheets and fonts from the page
+		const scripts = $("script");
+		for (let i = 0; i < scripts.length; i++) {
+			const path = $(scripts[i]).attr().src;
+			console.log(path)
+			if (path == undefined) continue;
+
+			// Save only if relative path used, otherwise the html links to a hardcoded web address and we'd have to modify the HTML to make it work.
+			if (path.substring(0, 4) != "http")
+				downloader(website, path, dirName);
+		}
+
+		console.log(`OK: Assets complete for website ${website} and saved to ${dirName}.`); 
+		
+	} catch (err) {
+		console.log(`Error: Could not download assets for website ${website}.`); 
+		console.log(err); 
+	}
+}
+
+async function downloader(website, path, dirName) {
+	try {
+		const fullImagePath = URL.resolve(website, path);
+		let response = await fetch(fullImagePath);
+		let buffer = await response.arrayBuffer();
+		buffer = Buffer.from(buffer);
+
+		// Create local folder structure as needed by the assets
+		let folder = path.substring(0, path.lastIndexOf('/'));
+		if (!fs.existsSync(dirName + "/" + folder)) {
+			fs.mkdirSync(dirName + "/" + folder, {recursive: true});
+		}
+
+		fs.createWriteStream(dirName + "/" + path).write(buffer);
+	} catch (err) {
+		console.log(`Error: Could not download assets for website ${website}.`); 
 		console.log(err); 
 	}
 }
